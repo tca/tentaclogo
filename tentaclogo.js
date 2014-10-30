@@ -32,7 +32,7 @@ var lt = function(r) { angle = angle - r; move(0); };
 
 var run = function (el,r) {
     document.location.hash = encodeURI($(el).value);
-    $(r).value = document.location;
+    $(r).value = document.location.href;
     eval(parse_start($(el).value, 0).val);
 };
 
@@ -41,3 +41,6 @@ button.addEventListener('click', function (e) {
     var dataURL = canvas.toDataURL('image/png');
     button.href = dataURL;
 });
+
+$('commands').value = decodeURI(document.location.hash.slice(1));
+run('commands', 'uribox');
