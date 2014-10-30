@@ -16,11 +16,14 @@
         <canvas id="main" width="600px" height="600px"></canvas>
         <canvas id="turtle" width="600px" height="600px"></canvas>
       </div>
-      <script type="text/javascript" src="./tentaclogo.js"></script>
       <div id="container2">
         <textarea id="commands" cols="40" rows="40"></textarea>
         <br/>
-        <a id="go" href="javascript:run('commands')">run commands</a>
+        <a id="go" href="javascript:run('commands', 'uribox')">run commands</a>
+        | <a href="#" download="drawing.png"  id="download">download</a>
+        <br />
+       share: <input type="text" id="uribox" columns="40" />
       </div>
+      <script type="text/javascript" src="./tentaclogo.js"></script>
     </body>
 </html>
