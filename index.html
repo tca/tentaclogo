@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Turtle</title>
+        <script type="text/javascript" src="./compiler.js"></script>
+        <style type="text/css">
+          canvas { position: absolute; border:1px solid #ccc; }
+          #turtle { background-color:transparent; }
+          #main { background-color:#FFF; }
+          #container { position:relative; }
+          #container2 { position:absolute; left:620px; }
+        </style>
+    </head>
+    <body style="background-color: #FFF;">
+      <div id="container">
+        <canvas id="main" width="600px" height="600px"></canvas>
+        <canvas id="turtle" width="600px" height="600px"></canvas>
+      </div>
+      <script type="text/javascript" src="./tentaclogo.js"></script>
+      <div id="container2">
+        <textarea id="commands" cols="40" rows="40"></textarea>
+        <br/>
+        <a id="go" href="javascript:run('commands')">run commands</a>
+      </div>
+    </body>
+</html>
