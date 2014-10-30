@@ -26,7 +26,7 @@ function move(distance) {
 var fd = move;
 var bk = function(d) { move(-d); }; 
 var pu = function() { pen_down = false; };
-var pd = function() { penu_down = true; };
+var pd = function() { pen_down = true; };
 var rt = function(r) { angle = angle + r; move(0); };
 var lt = function(r) { angle = angle - r; move(0); };
 
