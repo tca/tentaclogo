@@ -1,0 +1,213 @@
+<html><head>
+    <title>test PEG</title>
+    <script src="bootstrap.js"></script>
+    <script type="text/javascript">
+      
+function stringEncode(x) {
+    // http://www.htmlescape.net/stringescape_tool.html
+    var preescape="" + x;
+    var escaped="";
+    
+    var i=0;
+    for(i=0;i<preescape.length;i++)
+    {
+	escaped=escaped+encodeCharx(preescape.charAt(i));
+    }
+    
+    return '\''+escaped+'\'';
+}
+
+function encodeCharx(original)
+{
+    var found=true;
+    var thecharchar=original.charAt(0);
+    var thechar=original.charCodeAt(0);
+    switch(thecharchar) {
+    case '\n': return "\\n"; break; //newline
+    case '\r': return "\\r"; break; //Carriage return
+    case '\'': return "\\'"; break;
+    case '"': return "\\\""; break;
+    case '\&': return "\\&"; break;
+    case '\\': return "\\\\"; break;
+    case '\t': return "\\t"; break;
+    case '\b': return "\\b"; break;
+    case '\f': return "\\f"; break;
+    case '/': return "\\x2F"; break;
+    case '<': return "\\x3C"; break;
+    case '>': return "\\x3E"; break;
+    default:
+	found=false;
+	break;
+    }
+    if(!found)
+    {
+	if(thechar>127) {
+	    var c=thechar;
+	    var a4=c%16;
+	    c=Math.floor(c/16); 
+	    var a3=c%16;
+	    c=Math.floor(c/16);
+	    var a2=c%16;
+	    c=Math.floor(c/16);
+	    var a1=c%16;
+	    //	alert(a1);
+	    return "\\u"+hex[a1]+hex[a2]+hex[a3]+hex[a4]+"";		
+	}
+	else
+	{
+	    return original;
+	}
+    }
+}
+
+function repeat(str, n) {
+    return new Array(n+1).join(str);
+}
+
+function compile(ti,tx,to) {
+    var ov;
+    if(ti == 'peg') {
+        var xv = document.getElementById(tx).value;
+        ov = parse_sentence(xv,0);
+    }
+    else {
+        var iv = document.getElementById(ti).value;
+        var xv = document.getElementById(tx).value;
+        var encoded = stringEncode(xv);
+        var program = iv + '\n' + 'parse_start('+ encoded +',0,0,0);';
+        ov = eval(program);
+    }
+    if(ov && ov.pos >= xv.length) {
+       document.getElementById(to).value = ov.val;
+    }  else {
+       var lines = xv.split("\n");
+       var before = lines.slice(0, ov.line+1).join("\n");
+       var after = lines.slice(ov.line+1).join("\n");
+       document.getElementById(to).value = [
+          before, "\n",
+          repeat(" ", ov.col),
+          "^ error: ",  JSON.stringify(ov), "\n",
+          after].join('');
+    }
+}
+  </script>
+
+</head><body>
+
+<h1>metacircular PEG compiler-compiler</h1>
+
+
+<h2>PEG(t0) -> t1</h2>
+<textarea id="t0" rows="10" cols="80">
+sp <- ' ' / '\n' / '\t'.
+_  <- sp _ / .
+rule    <- n: name _ '<-'_ body: choice '.'_ ->
+               (["function parse_", n, "(input, pos, line, col) {\n",
+                   '  var state = { line: line, pos: pos, col: col  };\n',
+                   '  var stack = [];\n',
+                   body, 
+                   '  return state;\n',
+                "}\n"].join(''))
+           .
+sentence <- _ r: rule g: sentence -> (r + "\n" + g)
+          / _ r: rule -> (r + "\n"
+                + 'function lc(s) {\n'
+                + '  if (s.val == "\\n") { s.col = 0; s.line = s.line + 1; }\n'
+                + '  return s;\n'
+                + '}\n'
+                + 'function parse_char(input, pos, line, col) {\n'
+                + '  if (pos >= input.length) return null;\n'
+                + '  return lc({ pos: pos + 1, val: input.charAt(pos), \n'
+                + '           col: col + 1, line: line });\n'
+                + '}\n'
+                + 'function literal(input, pos, line, col, string) {\n'
+                + '  if (input.substr(pos, string.length) === string) {\n'
+                + '    return lc({ pos: pos + string.length, val: string, \n'
+                + '             col: col + string.length, line: line });\n'
+                + '  } else return null;\n'
+                + '}\n'
+                + "if (typeof exports !== 'undefined')\n"
+                + "    exports.parse_sentence = parse_sentence;\n"
+            ).
+meta     <- '!' / '\'' / '<-' / '/' / '.' / '(' / ')' / ':' / '->'.
+name     <- c: namechar n: name -> (c + n) / namechar.
+namechar <- !meta !sp char.
+term <- labeled / nonterminal / string / negation / parenthesized.
+nonterminal <- n: name _ ->
+                   (['  state = parse_', n, '(input, state.pos, state.line, state.col);\n'].join(''))
+               .
+labeled <- label: name _ ':'_ value: term ->
+               ([value, '  if (state) var ', label, ' = state.val;\n'].join(''))
+           .
+sequence <- foo: term  bar: sequence -> 
+                   ([foo, '  if (state) {\n', bar, '  }\n'].join(''))
+               / result_expression / -> ('').
+string <- '\'' s: stringcontents '\''_ ->
+             (["  state = literal(input, state.pos, state.line, state.col, '", s, "');\n"].join(''))
+          .
+stringcontents <-   !'\\' !'\'' c: char  s: stringcontents -> (c + s)
+                / b: '\\'       c: char  s: stringcontents -> (b + c + s)
+                / -> ('').
+choice <- a: sequence '/'_  b: choice ->
+                  (['  stack.push(state);\n',
+                    a,
+                    '  if (!state) {\n',
+                    '    state = stack.pop();\n',
+                    b,
+                    '  } else stack.pop();\n'].join(''))
+              / sequence.
+negation <- '!'_ t: term ->
+                (['  stack.push(state);\n',
+                  t,
+                  '  if (state) {\n',
+                  '    stack.pop();\n',
+                  '    state = null;\n',
+                  '  } else state = stack.pop();\n'].join(''))
+            .
+result_expression <- '->'_ result: expr _ ->
+                         (['  if (state) state.val = ', result, ';\n'].join(''))
+                     .
+expr         <- '('_ e: exprcontents ')' -> ('(' + e + ')').
+exprcontents <- c: (!'(' !')' char / expr)  e: exprcontents -> (c + e)
+              / -> ('').
+parenthesized <- '('_ body: choice ')'_ -> (body).
+start <- s: sentence -> (s).
+</textarea>
+<textarea id="t1" rows="10" cols="80"></textarea><br />
+<a href="javascript:compile('peg','t0','t1')" tabindex="1">go</a>
+
+<h2>t1(t2) -> t3</h2>
+<textarea id="t2" rows="10" cols="80">
+sp <- ' ' / '\n' / '\t'.
+_  <- sp _ / .
+digit <- '0' / '1' / '2' / '3' / '4' / '5' / '6' / '7' / '8' / '9'.
+number <- d:digit ds:number -> (d+ds) / d:digit -> (d).
+signed_number <- '-' n:number -> (-parseInt(n)) / n:number -> (parseInt(n)).
+arith <- e:aprod -> (['(',e,')'].join('')).
+aprod <- a:aexpr ( '*' b:aprod -> ([a,'*',b].join(''))
+                 / -> (a)).
+aexpr <- a:aterm ( '+' b:aexpr -> ([a,'+',b].join(''))
+                 / -> (a)).
+aterm <- n:signed_number -> (n)
+       / '(' _ a:arith _ ')' -> (a).
+cmd <- 'fd' / 'bk' / 'lt' / 'rt' / 'pu' / 'pd'.
+command <- c:cmd _ n:aterm -> ([c,'(',n,')'].join(''))
+         / 'repeat' _ n:aterm _ '[' body:commands _ ']' -> (['repeat(',n,',',body,')'].join(''))
+         / 'if' _ b:aterm _ '[' thn:commands _ ']'  _ '[' els:commands _ ']' -> (['if(',b,',',thn,',',els,')'].join('')).
+commands <- _ c1:command _ cr:commands -> (c1+'; '+cr)
+          / -> ('').
+start <- commands.
+</textarea>
+<textarea id="t3" rows="10" cols="80"></textarea><br />
+<a href="javascript:compile('t1','t2','t3')" tabindex="2">go</a>
+
+<h2>t3(t4) -> t5</h2>
+<textarea id="t4" rows="10" cols="80">
+fd 1 fd 2
+fd 3 fd_4
+fd 5 fd 6
+</textarea>
+<textarea id="t5" rows="10" cols="80"></textarea><br />
+<a href="javascript:compile('t3','t4','t5')" tabindex="3">go</a>
+
+</body></html>
